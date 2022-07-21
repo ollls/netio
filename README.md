@@ -10,3 +10,7 @@ trait IOChannel {
   def close() : IO[Unit]
 }
 ```
+
+
+IOChannel implemented for plain connection with TCPChannel and TLSChannel for TLS connection.
+
