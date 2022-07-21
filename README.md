@@ -14,7 +14,7 @@ trait IOChannel {
 
 IOChannel implemented for plain connection with TCPChannel and TLSChannel for TLS connection. All three methods implement convinent basic protocol which is meant to be used together with fs2.Stream.
 
-Here example for incoming HTTP2 packet reader with fs2 with netio interface.
+Here is example for incoming HTTP2 packet reader with fs2 with netio interface.
 
 ```scala
 private[this] def makePacketStream(
