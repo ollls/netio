@@ -12,5 +12,5 @@ trait IOChannel {
 ```
 
 
-IOChannel implemented for plain connection with TCPChannel and TLSChannel for TLS connection.
+IOChannel implemented for plain connection with TCPChannel and TLSChannel for TLS connection. All three methods implement convinent basic protocol which is meant to be used together with fs2.Stream.
 
