@@ -61,3 +61,60 @@ private[this] def makePacketStream(
 }
 ```
 
+Simplified HTTP1 Chunked fs2.Stream converter.
+
+```scala
+  private[this] def makeChunkedStream(leftOver: Chunk[Byte]) = {
+    val s0 = Stream.chunk[IO, Byte](leftOver)
+    val s1 = Stream.repeatEval(ch.read(TIMEOUT_MS)).flatMap(c0 => Stream.chunk(c0))
+
+    def go2(s: Stream[IO, Byte], hd: Chunk[Byte]): Pull[IO, Byte, Unit] = {
+      val (chunkSize, offset) = extractChunkLen2(hd)
+      val len = hd.size - offset // actual data avaialble
+ 
+      if (chunkSize == 0) Pull.done
+      else if (len == chunkSize + 2)
+        Pull.output[IO, Byte](hd.drop(offset).take(chunkSize)) >> go(
+          s,
+          chunk_drop_with_validation(hd, offset + chunkSize)
+        )
+      else if (len >= chunkSize + 2) // account for chunk end marking
+        Pull.output[IO, Byte](hd.drop(offset).take(chunkSize)) >> go2(
+          s,
+          chunk_drop_with_validation(hd, offset + chunkSize)
+        )
+      else go(s, hd)
+    }
+    
+    
+
+  def extractChunkLen2(db: Chunk[Byte]): (Int, Int) = {
+    var l = List.empty[Char]
+    var c: Byte = 0
+    var i: Int = 0
+    while {
+      { c = db(i); i += 1 }
+      c != '\r' && i < 8 // 8 chars for chunked len
+    } do (l = l.appended(c.toChar))
+    if (c == '\r' && db(i) == '\n') i += 1
+    else throw (new ChunkedEncodingError(""))
+    (Integer.parseInt(l.mkString, 16), i)
+  }
+
+
+  def chunk_drop_with_validation(data: Chunk[Byte], offset: Int) = {
+    val data2 = data.drop(offset)
+    // validate end of chunk
+    val test = (data2(0) == '\r' && data2(1) == '\n')
+    if (test == false) throw (new ChunkedEncodingError(""))
+    data2.drop(2) // get rid of end of block markings
+  }
+  
+  ```
+
+
+
+
+
+
+
