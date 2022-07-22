@@ -62,7 +62,7 @@ private[this] def makePacketStream(
 }
 ```
 
-Simplified HTTP1 Chunked fs2.Stream converter.
+* Simplified HTTP1 Chunked fs2.Stream converter.
 
 ```scala
   private[this] def makeChunkedStream(leftOver: Chunk[Byte]) = {
