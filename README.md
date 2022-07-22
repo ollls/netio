@@ -1,6 +1,7 @@
 # netio
 
 100% async JAVA NIO TCP and TLS interface for Cats Effects 3. All TLS encryption modeled as ZIO effects with javax.net.ssl.SSLEngine.
+Refert to test for examples. More documentation will be provided.
 
 
 ```scala
