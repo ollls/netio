@@ -15,6 +15,7 @@ import fs2.Chunk
 import java.net.StandardSocketOptions
 import java.net.InetSocketAddress
 import java.net.SocketAddress
+import java.util.concurrent.Executors
 
 object TCPChannel {
 
@@ -58,14 +59,16 @@ object TCPChannel {
     T.map(c => TCPChannel(c))
   }
 
+  def bind(addr: InetSocketAddress, socketGroupThreadsNum: Int): IO[AsynchronousServerSocketChannel] =
+    for {
+      group <- IO(AsynchronousChannelGroup.withThreadPool(Executors.newFixedThreadPool(socketGroupThreadsNum)))
+      channel <- IO(group.provider().openAsynchronousServerSocketChannel(group))
+      bind <- IO(channel.bind(addr))
+    } yield (bind)
+
 }
 
 class TCPChannel(ch: AsynchronousSocketChannel) extends IOChannel {
-
-  // testing with big picture BLOBS
-  //ch.setOption(StandardSocketOptions.SO_RCVBUF, 12 * 1024 * 1024);
-  //ch.setOption(StandardSocketOptions.SO_SNDBUF, 12 * 1024 * 1024);
-  //ch.setOption(StandardSocketOptions.SO_KEEPALIVE, true);
 
   var f_putBack: ByteBuffer = null
 
@@ -89,6 +92,17 @@ class TCPChannel(ch: AsynchronousSocketChannel) extends IOChannel {
 
     } yield (n.intValue())
   }
+
+  def rcvBufSize(nBytes: Int) = {
+    ch.setOption(StandardSocketOptions.SO_RCVBUF, nBytes)
+  }
+
+  def sndBufSize(nBytes: Int) = {
+    ch.setOption(StandardSocketOptions.SO_SNDBUF, nBytes)
+  }
+
+  def setOption[T](opt: java.net.SocketOption[T], val0: T) =
+    ch.setOption(opt, val0)
 
   def read(
       timeOut: Int

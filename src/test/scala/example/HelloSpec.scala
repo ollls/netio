@@ -31,8 +31,7 @@ class ExampleSuite extends CatsEffectSuite {
     for {
 
       addr <- IO(new InetSocketAddress("127.0.0.1", 8081))
-      group <- IO(AsynchronousChannelGroup.withThreadPool(Executors.newFixedThreadPool(4)))
-      server_ch <- IO(group.provider().openAsynchronousServerSocketChannel(group).bind(addr))
+      server_ch <- TCPChannel.bind( addr, socketGroupThreadsNum = 1 )
 
       serverFib <- TCPChannel
         .accept(server_ch)
@@ -43,14 +42,7 @@ class ExampleSuite extends CatsEffectSuite {
 
       buf <- in.read(1000)
 
-      /*
-      n   <- IO( buf.remaining() )
-      array <- IO( Array.ofDim[Byte](n) )
-      _ <- IO(buf.get(array) )*/
-
       text <- IO(new String(buf.toArray))
-
-      //_ <- IO.println(">>>Client received: " + text )
 
       _ <- in.close()
       _ <- IO(server_ch.close())
@@ -63,8 +55,6 @@ class ExampleSuite extends CatsEffectSuite {
   }
 
   test("TLS connection test with server reply") {
-    //println(withColor(AnsiColor.BLUE, "* TLS Connection test running..."))
-
     val ctx: SSLContext = TLSChannel.buildSSLContext("TLS", "keystore.jks", "password")
 
     def server(server_ch: AsynchronousServerSocketChannel) = {
@@ -75,10 +65,7 @@ class ExampleSuite extends CatsEffectSuite {
         output <-
           if (leftOver.isEmpty) /*IO.print(">>> Read: ") >>*/ tls_ch.read(1000)
           else /*IO.print(">>> Leftover: ") >>*/ IO(leftOver)
-
         text <- IO(new String(output.toArray))
-        //_ <- IO.println("server received: " + text)
-
         _ <- IO(assert(text == "Client Hello!\r\n"))
 
       } yield ()
@@ -86,9 +73,7 @@ class ExampleSuite extends CatsEffectSuite {
 
     for {
       addr <- IO(new InetSocketAddress("127.0.0.1", 8081))
-      group <- IO(AsynchronousChannelGroup.withThreadPool(Executors.newFixedThreadPool(4)))
-      server_ch <- IO(group.provider().openAsynchronousServerSocketChannel(group).bind(addr))
-
+      server_ch <- TCPChannel.bind( addr, socketGroupThreadsNum = 1 )
       serverFib <- server(server_ch).start
 
       plain <- TCPChannel.connect("127.0.0.1", 8081)
