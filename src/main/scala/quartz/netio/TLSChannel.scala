@@ -120,7 +120,7 @@ class TLSChannel(ctx: SSLContext, rch: TCPChannel) extends IOChannel {
   val APP_PACKET_SZ = f_SSL.engine.getSession().getApplicationBufferSize()
 
   // how many packets we can consume per read() call N of TLS_PACKET_SZ  -> N of APP_PACKET_SZ
-  private[this] val MULTIPLER = 4
+  val MULTIPLER = 4
 
   // prealoc carryover buffer, position getting saved between calls
   private[this] val IN_J_BUFFER = java.nio.ByteBuffer.allocate(TLS_PACKET_SZ * MULTIPLER)
