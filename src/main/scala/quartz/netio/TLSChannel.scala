@@ -31,7 +31,7 @@ import java.io.FileInputStream
 import java.io.File
 import javax.net.ssl.TrustManagerFactory
 import javax.net.ssl.KeyManagerFactory
-
+import scala.jdk.CollectionConverters.ListHasAsScala
 import java.nio.ByteBuffer
 
 sealed case class TLSChannelError(msg: String) extends Exception(msg)
@@ -103,7 +103,7 @@ object TLSChannel {
           IO.blocking(SSLContext.getDefault())
         else IO.blocking(buildSSLContext(TLS_PROTOCOL_TAG, trustKeystore, password))
       tcp_c <- TCPChannel.connect(host, port, group)
-      ch <- IO(TLSChannel(ssl_ctx, tcp_c))
+      ch <- IO(new TLSChannel(ssl_ctx, tcp_c))
       _ <- ch.ssl_initClient()
     } yield (ch)
 
@@ -372,7 +372,6 @@ class TLSChannel(ctx: SSLContext, rch: TCPChannel) extends IOChannel {
     result.handleErrorWith(_ => IO.unit)
   }
 
-  import collection.convert.ImplicitConversions.`list asScalaBuffer`
 
   // Client side SSL Init
   // for 99% there will be no leftover but under extreme load or upon JVM init it happens
@@ -395,7 +394,7 @@ class TLSChannel(ctx: SSLContext, rch: TCPChannel) extends IOChannel {
     for {
       _ <- f_SSL.setUseClientMode(false)
       _ <- IO(f_SSL.engine.setHandshakeApplicationProtocolSelector((eng, list) => {
-        if (list.find(_ == "h2").isDefined) "h2"
+        if (list.asScala.find(_ == "h2").isDefined) "h2"
         else null
       }))
 
@@ -417,7 +416,7 @@ class TLSChannel(ctx: SSLContext, rch: TCPChannel) extends IOChannel {
       - <- IO.println("ssl init")
       _ <- f_SSL.setUseClientMode(false)
       _ <- IO(f_SSL.engine.setHandshakeApplicationProtocolSelector((eng, list) => {
-        if (list.find(_ == "h2").isDefined) "h2"
+        if (list.asScala.find(_ == "h2").isDefined) "h2"
         else null
       }))
 

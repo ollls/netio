@@ -60,7 +60,7 @@ class ExampleSuite extends CatsEffectSuite {
     def server(server_ch: AsynchronousServerSocketChannel) = {
       for {
         ch <- TCPChannel.accept(server_ch)
-        tls_ch <- IO(TLSChannel(ctx, ch))
+        tls_ch <- IO(new TLSChannel(ctx, ch))
         leftOver <- tls_ch.ssl_init()
         output <-
           if (leftOver.isEmpty) /*IO.print(">>> Read: ") >>*/ tls_ch.read(1000)
@@ -77,7 +77,7 @@ class ExampleSuite extends CatsEffectSuite {
       serverFib <- server(server_ch).start
 
       plain <- TCPChannel.connect("127.0.0.1", 8081)
-      in <- IO(TLSChannel(ctx, plain))
+      in <- IO(new TLSChannel(ctx, plain))
       _ <- in.ssl_initClient()
       buf <- in.write(ByteBuffer.wrap("Client Hello!\r\n".getBytes()))
 

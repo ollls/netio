@@ -44,7 +44,7 @@ object TCPChannel {
     effectAsyncChannel[
       AsynchronousServerSocketChannel,
       AsynchronousSocketChannel
-    ](sch)(c => c.accept((), _)).map(TCPChannel(_))
+    ](sch)(c => c.accept((), _)).map( new TCPChannel(_))
 
   def connect(
       host: String,
@@ -52,11 +52,11 @@ object TCPChannel {
       group: AsynchronousChannelGroup = null
   ): IO[TCPChannel] = {
     val T = for {
-      address: SocketAddress <- IO(new InetSocketAddress(host, port))
+      address <- IO(new InetSocketAddress(host, port))
       ch <- if (group == null) IO(AsynchronousSocketChannel.open()) else IO(AsynchronousSocketChannel.open(group))
       _ <- effectAsyncChannel[AsynchronousSocketChannel, Void](ch)(ch => ch.connect(address, (), _))
     } yield (ch)
-    T.map(c => TCPChannel(c))
+    T.map(c => new TCPChannel(c))
   }
 
   def bind(addr: InetSocketAddress, socketGroupThreadsNum: Int): IO[AsynchronousServerSocketChannel] =
@@ -94,11 +94,11 @@ class TCPChannel(ch: AsynchronousSocketChannel) extends IOChannel {
   }
 
   def rcvBufSize(nBytes: Int) = {
-    ch.setOption(StandardSocketOptions.SO_RCVBUF, nBytes)
+    ch.setOption[Integer](StandardSocketOptions.SO_RCVBUF, nBytes)
   }
 
   def sndBufSize(nBytes: Int) = {
-    ch.setOption(StandardSocketOptions.SO_SNDBUF, nBytes)
+    ch.setOption[Integer](StandardSocketOptions.SO_SNDBUF, nBytes)
   }
 
   def setOption[T](opt: java.net.SocketOption[T], val0: T) =
