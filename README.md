@@ -1,5 +1,7 @@
 # netio
 
+Jul 28, 2022 - 2_13 support in main_2.13 branch ( sbt test fixed as well ). 
+
 100% async JAVA NIO TCP and TLS interface for Cats Effects 3. <br>TCP operations are composed as CATS Effect Async IO with java.nio.channels.CompletionHandler and all TLS decryption/encryption operations are modeled as ZIO effects with javax.net.ssl.SSLEngine.
 Refer to /test for examples. More documentation will be provided.
 
