@@ -2,7 +2,7 @@
 
 Updates:
 
-Aug 04, 2022 - Test results with netio + fs2 with Http/2 server engine. ( h2load tool - 2.3 GHz 8-Core Intel Core i9 ( MacBook ) )
+Aug 04, 2022 - Test results with netio on TLS 1.3 + fs2 with Http/2 server engine. ( h2load tool - 2.3 GHz 8-Core Intel Core i9 ( MacBook ) )
 <br><br>
 "http2-quartz", h2spec compatible engine will be pubished separately.
 
