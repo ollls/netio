@@ -1,52 +1,5 @@
 # netio
 
-Updates:
-
-Aug 04, 2022 - Test results with netio on TLS 1.3 + fs2 with Http/2 server engine. ( h2load tool - 2.3 GHz 8-Core Intel Core i9 ( MacBook ) )
-<br><br>
-"http2-quartz", h2spec compatible engine will be pubished separately.
-
-```
-h2load -D10 -t4 -c24 -m20 https://localhost:8443/health
-
-finished in 10.00s, 41779.20 req/s, 775.29KB/s
-requests: 417792 total, 418272 started, 417792 done, 417792 succeeded, 0 failed, 0 errored, 0 timeout
-status codes: 417792 2xx, 0 3xx, 0 4xx, 0 5xx
-traffic: 7.57MB (7938984) total, 408.00KB (417792) headers (space savings 90.00%), 0B (0) data
-                     min         max         mean         sd        +/- sd
-time for request:      829us     50.12ms     11.38ms      2.97ms    79.37%
-time for connect:    33.41ms     58.89ms     40.77ms      8.70ms    75.00%
-time to 1st byte:    41.21ms     65.52ms     49.74ms      8.38ms    70.83%
-req/s           :    1717.82     1765.31     1740.70       11.37    66.67%
-```
-
-```
-h2load -D10 -t4 -c24 -m10 https://localhost:8443/health
-
-finished in 10.00s, 39763.20 req/s, 737.89KB/s
-requests: 397632 total, 397872 started, 397632 done, 397632 succeeded, 0 failed, 0 errored, 0 timeout
-status codes: 397632 2xx, 0 3xx, 0 4xx, 0 5xx
-traffic: 7.21MB (7555980) total, 388.31KB (397632) headers (space savings 90.00%), 0B (0) data
-                     min         max         mean         sd        +/- sd
-time for request:      472us     57.68ms      5.95ms      2.28ms    84.25%
-time for connect:    29.60ms     59.79ms     39.51ms     10.97ms    66.67%
-time to 1st byte:    37.19ms     64.63ms     51.42ms      7.98ms    62.50%
-req/s           :    1617.39     1679.28     1656.77       13.60    70.83%
-```
-
-```
-h2load -D10 -t4 -c24 -m1 https://localhost:8443/health 
- 
-finished in 10.00s, 27522.70 req/s, 510.79KB/s
-requests: 275227 total, 275251 started, 275227 done, 275227 succeeded, 0 failed, 0 errored, 0 timeout
-status codes: 275227 2xx, 0 3xx, 0 4xx, 0 5xx
-traffic: 4.99MB (5230537) total, 268.78KB (275227) headers (space savings 90.00%), 0B (0) data
-                     min         max         mean         sd        +/- sd
-time for request:      207us      6.79ms       816us       266us    86.77%
-time for connect:    27.56ms     50.05ms     36.13ms      8.34ms    62.50%
-time to 1st byte:    32.26ms     54.08ms     41.64ms      7.57ms    58.33%
-req/s           :    1131.77     1161.14     1146.76       10.15    50.00%
-```
 
 Jul 28, 2022 - Scala 2.13 support in main_2.13 branch ( sbt test fixed as well ). 
 
