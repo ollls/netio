@@ -7,7 +7,7 @@ Jul 28, 2022 - Scala 2.13 support in main_2.13 branch ( sbt test fixed as well )
 <br>TCP operations are composed as CATS Effect Async IO with java.nio.channels.CompletionHandler and all TLS decryption/encryption operations are modeled as ZIO effects with javax.net.ssl.SSLEngine.
 Refer to /test for examples. More documentation will be provided.
 
-Also you may want to check-out https://github.com/ollls/quartz-h2 ( HTTP2 streamer based on netio. )
+Also you may want to check-out https://github.com/ollls/quartz-h2 ( HTTP2 streamer based on netio on Scala3 )
 
 
 ```scala
