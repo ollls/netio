@@ -372,7 +372,9 @@ class TLSChannel(ctx: SSLContext, rch: TCPChannel) extends IOChannel {
     result.handleErrorWith(_ => IO.unit)
   }
 
-  import collection.convert.ImplicitConversions.`list asScalaBuffer`
+  //import collection.convert.ImplicitConversions.`list asScalaBuffer`
+
+  import scala.jdk.CollectionConverters.ListHasAsScala
 
   // Client side SSL Init
   // for 99% there will be no leftover but under extreme load or upon JVM init it happens
@@ -388,14 +390,29 @@ class TLSChannel(ctx: SSLContext, rch: TCPChannel) extends IOChannel {
 
   }
 
+
   // Server side SSL Init
   // returns leftover chunk which needs to be used before we read chanel again.
   // for 99% there will be no leftover but under extreme load or upon JVM init it happens
   def ssl_init(): IO[Chunk[Byte]] = {
     for {
       _ <- f_SSL.setUseClientMode(false)
+      x <- doHandshake()
+      _ <-
+        if (x._1 != FINISHED) {
+          IO.raiseError(new TLSChannelError("TLS Handshake error, plain text connection?"))
+        } else IO.unit
+    } yield (x._2)
+  }
+
+  // Server side SSL Init
+  // returns leftover chunk which needs to be used before we read chanel again.
+  // for 99% there will be no leftover but under extreme load or upon JVM init it happens
+  def ssl_init_http11(): IO[Chunk[Byte]] = {
+    for {
+      _ <- f_SSL.setUseClientMode(false)
       _ <- IO(f_SSL.engine.setHandshakeApplicationProtocolSelector((eng, list) => {
-        if (list.find(_ == "h2").isDefined) "h2"
+        if (list.asScala.find(_ == "http/1.1").isDefined) "http/1.1"
         else null
       }))
 
@@ -417,7 +434,7 @@ class TLSChannel(ctx: SSLContext, rch: TCPChannel) extends IOChannel {
       - <- IO.println("ssl init")
       _ <- f_SSL.setUseClientMode(false)
       _ <- IO(f_SSL.engine.setHandshakeApplicationProtocolSelector((eng, list) => {
-        if (list.find(_ == "h2").isDefined) "h2"
+        if (list.asScala.find(_ == "h2").isDefined) "h2"
         else null
       }))
 
