@@ -2,4 +2,7 @@
 target/
 /.bloop
 /.idea
-project/
+project/target
+project/project
+project/.bloop
+project/.metals.sbt
