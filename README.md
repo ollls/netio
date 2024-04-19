@@ -1,5 +1,6 @@
 # netio - TLS Effects for Quartz-H2 HTTP/2 streaming server. 
 
+April 19, 2024 - Update to make it current with quartz-H2 source code. ( primaraly TLS SNI(Server Name Indication) fixes )
 Jul 28, 2022 - Scala 2.13 support in main_2.13 branch ( sbt test fixed as well ). 
 
 ### 100% async JAVA NIO TCP and TLS interface for Cats Effects 3.
