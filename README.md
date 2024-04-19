@@ -1,5 +1,4 @@
-# netio
-
+# netio - TLS Effects for Quartz-H2 HTTP/2 streaming server. 
 
 Jul 28, 2022 - Scala 2.13 support in main_2.13 branch ( sbt test fixed as well ). 
 
