@@ -1,4 +1,4 @@
-package quartz.netio
+package io.quartz.netio
 
 import java.nio.channels.{
   AsynchronousChannelGroup,
@@ -9,12 +9,11 @@ import java.nio.channels.{
 
 import java.util.concurrent.TimeUnit
 import java.nio.channels.Channel
-import cats.effect.{IO, ExitCode}
+import cats.effect.IO
 import java.nio.ByteBuffer
 import fs2.Chunk
 import java.net.StandardSocketOptions
 import java.net.InetSocketAddress
-import java.net.SocketAddress
 import java.util.concurrent.Executors
 
 object TCPChannel {
@@ -33,7 +32,7 @@ object TCPChannel {
             /*println("ef ****** " + t.toString());*/
             cb(Left(t))
           }
-        })).map(_ => None)
+        })).map(_ => Some(IO.unit))
       })
     )
   }
@@ -44,7 +43,7 @@ object TCPChannel {
     effectAsyncChannel[
       AsynchronousServerSocketChannel,
       AsynchronousSocketChannel
-    ](sch)(c => c.accept((), _)).map(TCPChannel(_))
+    ](sch)(c => c.accept((), _)).map( new TCPChannel(_))
 
   def connect(
       host: String,
@@ -52,11 +51,11 @@ object TCPChannel {
       group: AsynchronousChannelGroup = null
   ): IO[TCPChannel] = {
     val T = for {
-      address: SocketAddress <- IO(new InetSocketAddress(host, port))
+      address <- IO(new InetSocketAddress(host, port))
       ch <- if (group == null) IO(AsynchronousSocketChannel.open()) else IO(AsynchronousSocketChannel.open(group))
       _ <- effectAsyncChannel[AsynchronousSocketChannel, Void](ch)(ch => ch.connect(address, (), _))
     } yield (ch)
-    T.map(c => TCPChannel(c))
+    T.map(c => new TCPChannel(c))
   }
 
   def bind(addr: InetSocketAddress, socketGroupThreadsNum: Int): IO[AsynchronousServerSocketChannel] =
@@ -68,8 +67,11 @@ object TCPChannel {
 
 }
 
-class TCPChannel(ch: AsynchronousSocketChannel) extends IOChannel {
-
+class TCPChannel( val ch: AsynchronousSocketChannel) extends IOChannel {
+  // testing with big picture BLOBS
+  //ch.setOption(StandardSocketOptions.SO_RCVBUF, 6 * 1024 * 1024);
+  //ch.setOption(StandardSocketOptions.SO_SNDBUF, 6 * 1024 * 1024);
+  //ch.setOption(StandardSocketOptions.SO_KEEPALIVE, true);
   var f_putBack: ByteBuffer = null
 
   private[netio] def put(bb: ByteBuffer): IO[Unit] = IO { f_putBack = bb }
@@ -94,11 +96,11 @@ class TCPChannel(ch: AsynchronousSocketChannel) extends IOChannel {
   }
 
   def rcvBufSize(nBytes: Int) = {
-    ch.setOption(StandardSocketOptions.SO_RCVBUF, nBytes)
+    ch.setOption[Integer](StandardSocketOptions.SO_RCVBUF, nBytes)
   }
 
   def sndBufSize(nBytes: Int) = {
-    ch.setOption(StandardSocketOptions.SO_SNDBUF, nBytes)
+    ch.setOption[Integer](StandardSocketOptions.SO_SNDBUF, nBytes)
   }
 
   def setOption[T](opt: java.net.SocketOption[T], val0: T) =
@@ -134,5 +136,7 @@ class TCPChannel(ch: AsynchronousSocketChannel) extends IOChannel {
   }
 
   def close(): IO[Unit] = IO(ch.close)
+
+   def secure() = false
 
 }

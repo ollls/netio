@@ -5,7 +5,7 @@ import javax.net.ssl.SSLContext
 
 import scala.io.AnsiColor._
 
-import quartz.netio._
+import io.quartz.netio._
 import java.util.concurrent.Executors
 import java.net.InetSocketAddress
 import java.nio.channels.{

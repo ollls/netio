@@ -1,4 +1,4 @@
-package quartz.netio
+package io.quartz.netio
 
 import cats.effect.IO
 

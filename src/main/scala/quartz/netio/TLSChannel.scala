@@ -1,38 +1,26 @@
-package quartz.netio
+package io.quartz.netio
 
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLEngineResult.HandshakeStatus
 import javax.net.ssl.SSLEngineResult.HandshakeStatus._
-import java.net.InetSocketAddress
-import java.net.SocketAddress
 import java.security.KeyStore
-
-import javax.net.ssl.{SSLEngineResult, SSLSession}
-
+import javax.net.ssl.{SSLEngineResult}
 import cats.effect.Ref
-
-import java.util.concurrent.TimeUnit
-import java.nio.channels.Channel
-import cats.effect.{IO, IOApp, ExitCode}
-import java.nio.ByteBuffer
+import cats.effect.IO
 import fs2.Chunk
-
-import java.nio.channels.{
-  AsynchronousChannelGroup,
-  AsynchronousServerSocketChannel,
-  AsynchronousSocketChannel,
-  CompletionHandler
-}
-
+import java.nio.channels.AsynchronousChannelGroup
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
+import javax.net.ssl.SNIServerName
+import javax.net.ssl.SNIMatcher
 import java.security.cert.X509Certificate
 import java.io.FileInputStream
 import java.io.File
 import javax.net.ssl.TrustManagerFactory
 import javax.net.ssl.KeyManagerFactory
-
+import scala.jdk.CollectionConverters.ListHasAsScala
 import java.nio.ByteBuffer
+import scala.collection.mutable.ListBuffer
 
 sealed case class TLSChannelError(msg: String) extends Exception(msg)
 
@@ -103,7 +91,7 @@ object TLSChannel {
           IO.blocking(SSLContext.getDefault())
         else IO.blocking(buildSSLContext(TLS_PROTOCOL_TAG, trustKeystore, password))
       tcp_c <- TCPChannel.connect(host, port, group)
-      ch <- IO(TLSChannel(ssl_ctx, tcp_c))
+      ch <- IO(new TLSChannel(ssl_ctx, tcp_c))
       _ <- ch.ssl_initClient()
     } yield (ch)
 
@@ -113,7 +101,7 @@ object TLSChannel {
 
 }
 
-class TLSChannel(ctx: SSLContext, rch: TCPChannel) extends IOChannel {
+class TLSChannel(val ctx: SSLContext, rch: TCPChannel) extends IOChannel {
 
   var f_SSL: SSLEngine = new SSLEngine(ctx.createSSLEngine())
   val TLS_PACKET_SZ = f_SSL.engine.getSession().getPacketBufferSize()
@@ -122,8 +110,15 @@ class TLSChannel(ctx: SSLContext, rch: TCPChannel) extends IOChannel {
   // how many packets we can consume per read() call N of TLS_PACKET_SZ  -> N of APP_PACKET_SZ
   val MULTIPLER = 4
 
+  private[this] val sni_hosts = new ListBuffer[String]()
+
   // prealoc carryover buffer, position getting saved between calls
   private[this] val IN_J_BUFFER = java.nio.ByteBuffer.allocate(TLS_PACKET_SZ * MULTIPLER)
+
+  override def sniServerNames(): Option[Array[String]] = {
+    if( sni_hosts.size == 0 ) None
+    else Some(sni_hosts.toArray)
+  }  
 
   private[this] def doHandshakeClient() = {
     // val BUFF_SZ = ssl_engine.engine.getSession().getPacketBufferSize()
@@ -330,9 +325,9 @@ class TLSChannel(ctx: SSLContext, rch: TCPChannel) extends IOChannel {
       }
       r <- loop
         .iterateWhile(c => { loop_cntr = loop_cntr + 1; c != FINISHED && loop_cntr < 300 })
-        //.flatTap(_ =>
-        //  IO.println("POS=" + in_buf.position() + "  " + temp + "  P4 = " + TLS_PACKET_SZ + "/" + APP_PACKET_SZ)
-        //)
+      // .flatTap(_ =>
+      //  IO.println("POS=" + in_buf.position() + "  " + temp + "  P4 = " + TLS_PACKET_SZ + "/" + APP_PACKET_SZ)
+      // )
       // SSL data lefover issue.
       // very rare case when TLS handshake reads more then neccssary
       // this happens on very first connection upon restart only one time, when JVM is slow on first load/compilation
@@ -372,12 +367,32 @@ class TLSChannel(ctx: SSLContext, rch: TCPChannel) extends IOChannel {
     result.handleErrorWith(_ => IO.unit)
   }
 
-  //import collection.convert.ImplicitConversions.`list asScalaBuffer`
+  def secure() = true
 
-  import scala.jdk.CollectionConverters.ListHasAsScala
+  class SniName(sniServerName: String) extends SNIServerName(0, sniServerName.getBytes())
+  def ssl_initClent_h2(sniServerName: String): IO[Unit] = {
+    for {
+      _ <- f_SSL.setUseClientMode(true)
+      sslParameters <- IO(f_SSL.engine.getSSLParameters())
 
-  // Client side SSL Init
-  // for 99% there will be no leftover but under extreme load or upon JVM init it happens
+      sniList <- IO(
+        Array(sniServerName)
+          .map(SniName(_))
+          .foldLeft(new java.util.ArrayList[SNIServerName]())((list, item) => { list.add(item); list })
+      )
+      _ <- IO(sslParameters.setServerNames(sniList))
+      _ <- IO(sslParameters.setApplicationProtocols(Array("h2")))
+      _ <- IO(f_SSL.engine.setSSLParameters(sslParameters))
+      x <- doHandshakeClient()
+      _ <-
+        if (x != FINISHED) {
+          IO.raiseError(
+            new TLSChannelError("TLS Handshake error, plain text connection?")
+          )
+        } else IO.unit
+    } yield ()
+  }
+
   def ssl_initClient(): IO[Unit] = {
     for {
       _ <- f_SSL.setUseClientMode(true)
@@ -389,7 +404,6 @@ class TLSChannel(ctx: SSLContext, rch: TCPChannel) extends IOChannel {
     } yield ()
 
   }
-
 
   // Server side SSL Init
   // returns leftover chunk which needs to be used before we read chanel again.
@@ -405,37 +419,34 @@ class TLSChannel(ctx: SSLContext, rch: TCPChannel) extends IOChannel {
     } yield (x._2)
   }
 
-  // Server side SSL Init
-  // returns leftover chunk which needs to be used before we read chanel again.
-  // for 99% there will be no leftover but under extreme load or upon JVM init it happens
-  def ssl_init_http11(): IO[Chunk[Byte]] = {
-    for {
-      _ <- f_SSL.setUseClientMode(false)
-      _ <- IO(f_SSL.engine.setHandshakeApplicationProtocolSelector((eng, list) => {
-        if (list.asScala.find(_ == "http/1.1").isDefined) "http/1.1"
-        else null
-      }))
-
-      x <- doHandshake()
-
-      _ <-
-        if (x._1 != FINISHED) {
-          IO.raiseError(new TLSChannelError("TLS Handshake error, plain text connection?"))
-        } else IO.unit
-    } yield (x._2)
-  }
-
   // Server side SSL Init with ALPN for H2 only
   // ALPN (Application Layer Protocol Negotiation) for http2
   // returns leftover chunk which needs to be used before we read chanel again.
   // for 99% there will be no leftover but under extreme load or upon JVM init it happens
+
+  private class QuartzSNIMatcher extends SNIMatcher(0) {
+    // def matches​( serveName: SNIServerName ): Boolean = true
+    def matches(name: javax.net.ssl.SNIServerName): Boolean = {
+      sni_hosts.append(String(name.getEncoded()))
+      true
+    }
+  }
+
   def ssl_init_h2(): IO[Chunk[Byte]] = {
     for {
-      - <- IO.println("ssl init")
       _ <- f_SSL.setUseClientMode(false)
+      sslParameters <- IO(f_SSL.engine.getSSLParameters())
+      _ <- IO(
+        sslParameters.setSNIMatchers(
+          Array(new QuartzSNIMatcher()).foldLeft(new java.util.ArrayList[SNIMatcher]())((arr, x) => { arr.add(x); arr })
+        )
+      )
+
+      _ <- IO(f_SSL.engine.setSSLParameters(sslParameters))
+
       _ <- IO(f_SSL.engine.setHandshakeApplicationProtocolSelector((eng, list) => {
         if (list.asScala.find(_ == "h2").isDefined) "h2"
-        else null
+        else "http/1.1"
       }))
 
       x <- doHandshake()
@@ -452,7 +463,6 @@ class TLSChannel(ctx: SSLContext, rch: TCPChannel) extends IOChannel {
 
     val res = for {
       out <- IO(ByteBuffer.allocate(if (in.limit() > TLS_PACKET_SZ) in.limit() * 3 else TLS_PACKET_SZ * 3))
-      _ <- IO(out.clear)
 
       loop = for {
         res <- f_SSL.wrap(in, out)
